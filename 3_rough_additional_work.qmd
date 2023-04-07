@@ -1,0 +1,305 @@
+---
+title: "Rough work"
+author: "Yusuf Imaad Khan"
+---
+
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: false
+
+# A script for some additional suggestions
+
+library(tidyverse)
+library(janitor) # yes use janitor this time Yusuf. Don't be silly. 
+
+staff_and_student_df <- read_csv("HESA data/staff_and_student_df.csv") %>% clean_names()
+
+# @psychicyogamat
+
+# Would be interesting to correlate to overall staffing levels and incoming student numbers. 
+# I suspect it's linked to the lifting of caps and the corresponding decline in students entering non-RG universities, 
+# putting them in crisis (also why pay negotiations are stalling)
+
+# Okay so staffing levels and incoming student numbers
+
+staff_student_num <- staff_and_student_df %>% 
+  select(ukprn, 
+         he_provider, 
+         date, 
+         open_ended_permanent, 
+         fixed_term, 
+         total_academic_staff, 
+         total) %>%  # this is total students
+  
+  # Russell Group Flag
+  
+  mutate(rg_flag = if_else(he_provider %in% c(
+    "The University of Birmingham",
+    "The University of Bristol", 
+    "The University of Cambridge",
+    "Cardiff University",
+    "University of Durham", 
+    "The University of Edinburgh",
+    "The University of Exeter",
+    "The University of Glasgow",
+    "Imperial College of Science, Technology and Medicine",
+    "King's College London",
+    "The University of Leeds",
+    "The University of Liverpool",
+    "London School of Economics and Political Science",
+    "The University of Manchester",
+    "Newcastle University",
+    "University of Nottingham", 
+    "The University of Oxford", 	
+    "Queen Mary University of London", 
+    "Queen's University Belfast",
+    "The University of Sheffield", 
+    "The University of Southampton", 
+    "University College London", 	
+    "The University of Warwick", 	
+    "The University of York"), 1, 0)) #%>% 
+    #filter(rg_flag==1) %>% select(he_provider) %>% distinct() # should have 24 Russell Group unis. Check here.
+    
+    # Test whether aggregate figures add up    
+
+  #total_test_1 <- staff_student_num %>% 
+  #filter(he_provider=="Total") # test if totals add up to same value
+  
+  # total_test_2 <- staff_student_num %>% 
+  # filter(!he_provider=="Total") %>% 
+  #   group_by(date) %>% 
+  #   summarise_at(c(4,5,6,7), sum, na.rm = TRUE)
+
+  # Ok so some values are slightly off and I do NOT trust the aggregate student figures. But hopefully serves as rough indication. Will caveat
+
+  # Do for total
+
+  total_staff_student_num <- staff_student_num %>% 
+    filter(!he_provider=="Total") %>% 
+    rename(student_numbers = total) %>% 
+    group_by(date) %>% 
+    summarise(across(3:7, ~ sum(.x,na.rm = TRUE))) %>% select(-rg_flag) %>% 
+    pivot_longer(2:5,names_to = "var", values_to = "values")
+    
+  
+  # And then just Russell/Hustle group
+  
+  rg_staff_student_num <- staff_student_num %>% 
+    filter(rg_flag==1) %>% 
+    rename(student_numbers = total) %>% 
+    group_by(date) %>% 
+    summarise(across(3:7, ~ sum(.x,na.rm = TRUE))) %>% select(-rg_flag) %>% 
+    pivot_longer(2:5,names_to = "var", values_to = "values")
+  
+  
+ojs_define(total_staff_student_num_convert = total_staff_student_num)
+
+ojs_define(rg_staff_student_num_convert = rg_staff_student_num)
+```
+
+## Charts
+
+![](line.svg){width="70" height="5"}
+
+::: {style="margin-top: -1.6rem; margin-bottom: 1rem"}
+### [Student numbers]{style="color: #de425b;"} have shot up whilst staffing levels lag behind
+:::
+
+::: {style="color: #5a6570; margin-bottom: -0.5rem;font-size: 0.9em;"}
+Proportionate *changes* (%) in staff and student numbers
+:::
+
+```{ojs}
+//| warning: false
+//| echo: false
+//| message: false
+
+//transpose
+
+mydata1 = transpose(total_staff_student_num_convert)
+
+// plot
+
+Plot.plot({
+  
+  marginTop:30,
+  marginRight: 160,
+  marginLeft: 50,
+  marginBottom: 95,
+  
+  x: {
+    label: null,
+    nice: true,
+    grid: false,
+    tickPadding: 10,
+    tickRotate: -45
+  },
+  
+  y: {
+    className: "axis-lab",
+    label: "Baseline (2014/15) = 0",
+    grid: true,
+    nice: true,
+    ticks: 5,
+    tickFormat: (f => x => f((x - 1) * 100))(d3.format("+d"))
+  },
+  
+  marks: [
+    
+    Plot.line(mydata1,
+    Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      stroke: "var",
+      strokeWidth: 3,
+    })),
+    
+    
+    Plot.dot(mydata1,
+      Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      stroke: "var",
+      strokeWidth: 3
+    })),
+    
+    Plot.text(mydata1, 
+    Plot.selectLast(
+    Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      text: "var",
+      textAnchor: "start",
+      dx: 10
+    })))
+    
+  ],
+  
+  color: {
+  legend: true
+  }
+  
+})
+
+
+```
+
+<axis-lab>
+
+```{=html}
+<style> text { font-size: 18px; color: #5a6570; } </style>
+```
+</axis-lab>
+
+::: {style="color: #5a6570; margin-top: -1.2rem;font-size: 0.8em;"}
+Suggested by @psychicyogamat<br>
+Source: [M. Lieutaud (2023) LSE UCU Analysis of HESA data](https://github.com/MarionLieutaud/LSEUCU-casualisation) <br> Graphic: Yusuf Imaad Khan / @yusuf_i_k <br> Rogue Analysis📈
+:::
+
+## Chart 2
+
+![](line.svg){width="70" height="5"}
+
+::: {style="margin-top: -1.6rem; margin-bottom: 1rem"}
+### Russell Group [Student numbers]{style="color: #de425b;"} have outpaced staffing levels
+:::
+
+::: {style="color: #5a6570; margin-bottom: -0.5rem;font-size: 0.9em;"}
+Proportionate *changes* (%) in staff and student numbers at RUSSELL GROUP
+:::
+
+```{ojs}
+//| warning: false
+//| echo: false
+//| message: false
+
+//transpose
+
+mydata2 = transpose(rg_staff_student_num_convert)
+
+// plot
+
+Plot.plot({
+  
+  marginTop:30,
+  marginRight: 160,
+  marginLeft: 50,
+  marginBottom: 95,
+  
+  x: {
+    label: null,
+    nice: true,
+    grid: false,
+    tickPadding: 10,
+    tickRotate: -45
+  },
+  
+  y: {
+    className: "axis-lab",
+    label: "Baseline (2014/15) = 0",
+    grid: true,
+    nice: true,
+    ticks: 5,
+    tickFormat: (f => x => f((x - 1) * 100))(d3.format("+d"))
+  },
+  
+  marks: [
+    
+    Plot.line(mydata2,
+    Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      stroke: "var",
+      strokeWidth: 3,
+    })),
+    
+    
+    Plot.dot(mydata2,
+      Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      stroke: "var",
+      strokeWidth: 3
+    })),
+    
+    Plot.text(mydata2, 
+    Plot.selectLast(
+    Plot.normalizeY({
+      x: "date", 
+      y: "values", 
+      z: "var",
+      text: "var",
+      textAnchor: "start",
+      dx: 10
+    })))
+    
+  ],
+  
+  color: {
+  legend: true
+  }
+  
+})
+
+
+```
+
+<axis-lab>
+
+```{=html}
+<style> text { font-size: 18px; color: #5a6570; } </style>
+```
+</axis-lab>
+
+::: {style="color: #5a6570; margin-top: -1.2rem;font-size: 0.8em;"}
+Suggested by @psychicyogamat<br>
+Source: [M. Lieutaud (2023) LSE UCU Analysis of HESA data](https://github.com/MarionLieutaud/LSEUCU-casualisation) <br> Graphic: Yusuf Imaad Khan / @yusuf_i_k <br> Rogue Analysis📈
+:::
+
